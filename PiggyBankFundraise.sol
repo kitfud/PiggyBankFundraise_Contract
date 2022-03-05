@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+/SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 contract PiggyBankFundraise {
@@ -6,7 +6,7 @@ contract PiggyBankFundraise {
     event Deposit(uint _amount, address _depositer, uint _fundingGoal, bool _targetReached);
     event GoldenDonerSet(address goldenDoner);
     event WithdrawAll(uint amount);
-    event CanWithdraw(bool donersRecoverFunds, bool contractRetrainFunds);
+    event CanWithdraw(bool donersRecoverFunds, bool contractRetrainFunds, uint256 currentBlockTime);
 
     address payable public owner; 
     uint public fundingGoal; 
@@ -23,7 +23,7 @@ contract PiggyBankFundraise {
 
     mapping(address => uint) public addressToDonation; 
 
-    constructor(uint _fundingGoal, string memory _fundingSummary, uint _getBackFundsMin, uint _clearContractMin){
+    constructor(uint _fundingGoal, string memory _fundingSummary, uint _getBackFundsMin, uint _clearContractMin) payable {
         require(_clearContractMin > _getBackFundsMin, "clearContractMin has to be larger than the getBackFundsMin");
         owner = payable(msg.sender);
         fundingGoal = _fundingGoal;
@@ -39,6 +39,12 @@ contract PiggyBankFundraise {
         require(!targetReached, "funding goal has been reached"); 
         _;
     }
+
+    modifier fundingGoalMet(){
+        require(targetReached, "funding goal has not been reached"); 
+        _;
+    }
+
 
     modifier getBackFundsTime(){
         require(block.timestamp >= recoverFundsAt && block.timestamp < retainFundsAt, "fund recovery period has not started");
@@ -58,13 +64,16 @@ contract PiggyBankFundraise {
         if(block.timestamp >= retainFundsAt){
             retrainFundsAvailable = true;
         }
-        emit CanWithdraw(recoverFundsAvailable, retrainFundsAvailable);
+        emit CanWithdraw(recoverFundsAvailable, retrainFundsAvailable, block.timestamp);
+    }
+
+    function getBlockTimestamp() public view returns (uint256){
+        return block.timestamp;
     }
 
     receive() external payable fundingGoalNotMet{
     addressToDonation[msg.sender] += msg.value;
-    if(checkFundraisingTarget()){
-        disburseFunds();
+    if(checkFundraisingTarget()){ 
         goldenDoner = msg.sender;
         targetReached = true;
         emit GoldenDonerSet(msg.sender);
@@ -72,7 +81,7 @@ contract PiggyBankFundraise {
     emit Deposit(msg.value, msg.sender, fundingGoal, targetReached);
     }
 
-    function getBackFunds() external getBackFundsTime{
+    function getBackFunds() public getBackFundsTime{
         uint donated = addressToDonation[msg.sender];
         payable(msg.sender).transfer(donated);
     }
@@ -83,12 +92,15 @@ contract PiggyBankFundraise {
     }
 
     function withdrawAll() public clearContractAvailable {
+        require(msg.sender==owner, "only contract owner can access this function");
         emit WithdrawAll(address(this).balance);
         selfdestruct(payable(msg.sender));
     }
 
-    function disburseFunds() internal {
-        owner.transfer(address(this).balance);
+    function disburseFunds() public fundingGoalMet {
+        require(msg.sender==owner, "only contract owner can access this function");
+         emit WithdrawAll(address(this).balance);
+         selfdestruct(payable(msg.sender));
     }
 
     function checkFundraisingTarget() internal view returns (bool) {
