@@ -1,115 +1,130 @@
-/SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 contract PiggyBankFundraise {
 
-    event Deposit(uint _amount, address _depositer, uint _fundingGoal, bool _targetReached);
-    event GoldenDonerSet(address goldenDoner);
-    event WithdrawAll(uint amount);
-    event CanWithdraw(bool donersRecoverFunds, bool contractRetrainFunds, uint256 currentBlockTime);
+    event Deposit(uint _amount, address _depositer, uint depositTime);
+    event GoldenDonerSet(address goldenDoner, uint time);
+    event WithdrawAll(uint amount, uint withdrawTime);
+
 
     address payable public owner; 
     uint public fundingGoal; 
     string public fundingSummary;
     address public goldenDoner; 
-    bool public targetReached; 
-
+    
     uint public immutable startAt; 
     uint public immutable recoverFundsAt;
     uint public immutable retainFundsAt; 
 
-    bool public recoverFundsAvailable;
-    bool public retrainFundsAvailable;
+
+    bool public fundsWithdrawn;
+    bool public goldenDonerSet; 
+ 
+
 
     mapping(address => uint) public addressToDonation; 
 
-    constructor(uint _fundingGoal, string memory _fundingSummary, uint _getBackFundsMin, uint _clearContractMin) payable {
-        require(_clearContractMin > _getBackFundsMin, "clearContractMin has to be larger than the getBackFundsMin");
-        owner = payable(msg.sender);
+    constructor(address _owner, uint _fundingGoal, string memory _fundingSummary, uint _getBackFundsMinute, uint _clearContractMinute){
+        require(_clearContractMinute > _getBackFundsMinute, "clearContractMin time has to be larger than the getBackFundsMin time");
+        owner = payable(_owner);
         fundingGoal = _fundingGoal;
         fundingSummary = _fundingSummary;
         startAt = block.timestamp;
-        recoverFundsAt = startAt + _getBackFundsMin*60;
-        retainFundsAt = startAt + _clearContractMin*60;
-        recoverFundsAvailable = false;
-        retrainFundsAvailable= false;
+        recoverFundsAt = startAt + _getBackFundsMinute*60;
+        retainFundsAt = startAt + _clearContractMinute*60;
+        fundsWithdrawn = false;
+        goldenDonerSet = false;
+       
     }
 
     modifier fundingGoalNotMet(){
-        require(!targetReached, "funding goal has been reached"); 
+        require(checkFundraisingTarget()==false, "funding goal has been reached."); 
+        require(!fundsWithdrawn, "contract donation period has ended.");
         _;
     }
-
-    modifier fundingGoalMet(){
-        require(targetReached, "funding goal has not been reached"); 
-        _;
-    }
-
 
     modifier getBackFundsTime(){
-        require(block.timestamp >= recoverFundsAt && block.timestamp < retainFundsAt, "fund recovery period has not started");
+        require(block.timestamp >= recoverFundsAt && block.timestamp < retainFundsAt, "not in fund recovery period");
       _;
     }
 
-    modifier clearContractAvailable(){
-        require(msg.sender == owner, "function access is only for owner"); 
+    modifier clearContractAvailable(address _client){
+        require(_client == owner, "function access is only for owner"); 
         require(block.timestamp >= retainFundsAt, "retain funds period has not started");
         _;
     }
 
-    function checkAvaialbleWithdrawMethods() public {
-        if(block.timestamp >= recoverFundsAt && block.timestamp < retainFundsAt){
-            recoverFundsAvailable = true;
-        }
-        if(block.timestamp >= retainFundsAt){
-            retrainFundsAvailable = true;
-        }
-        emit CanWithdraw(recoverFundsAvailable, retrainFundsAvailable, block.timestamp);
+    modifier onlyOwner(address _client){
+        require(_client ==owner, "function is only for owner");
+        _;
     }
 
-    function getBlockTimestamp() public view returns (uint256){
+    function getTime() public view returns (uint256){
         return block.timestamp;
     }
 
-    receive() external payable fundingGoalNotMet{
+
+    receive() external payable {
+    require(!fundsWithdrawn,"fundraising campaign has ended, owner withdrew contract funds.");
+    require(!goldenDonerSet, "final donation has been recieved");
     addressToDonation[msg.sender] += msg.value;
-    if(checkFundraisingTarget()){ 
+    if(checkFundraisingTarget()){
+        goldenDonerSet = true;
         goldenDoner = msg.sender;
-        targetReached = true;
-        emit GoldenDonerSet(msg.sender);
+        emit GoldenDonerSet(msg.sender, block.timestamp);
     }
-    emit Deposit(msg.value, msg.sender, fundingGoal, targetReached);
+    emit Deposit(msg.value, msg.sender, block.timestamp);
     }
 
-    function getBackFunds() public getBackFundsTime{
-        uint donated = addressToDonation[msg.sender];
-        payable(msg.sender).transfer(donated);
+    function getBackFunds(address _client) external getBackFundsTime{
+        require(checkFundraisingTarget()==false, "function not available, funding goal has been met.");
+        uint donated = addressToDonation[_client];
+        payable(_client).transfer(donated);
     }
 
     function getContractBalance() public view returns (uint256){
-        checkFundraisingTarget();
         return address(this).balance; 
     }
 
-    function withdrawAll() public clearContractAvailable {
-        require(msg.sender==owner, "only contract owner can access this function");
-        emit WithdrawAll(address(this).balance);
-        selfdestruct(payable(msg.sender));
+    function withdrawAll(address _client) public clearContractAvailable(_client) {
+        require(_client== owner, "function available for owner only");
+        require(!fundsWithdrawn, "fund withdraw has already been called");
+
+        fundsWithdrawn = true;
+        emit WithdrawAll(address(this).balance, block.timestamp);
+        owner.transfer(address(this).balance);
     }
 
-    function disburseFunds() public fundingGoalMet {
-        require(msg.sender==owner, "only contract owner can access this function");
-         emit WithdrawAll(address(this).balance);
-         selfdestruct(payable(msg.sender));
+    function disburseFunds(address _client) public onlyOwner(_client) {
+        require(!fundsWithdrawn, "fund withdraw has already been called");
+        require(checkFundraisingTarget()==true, "funding goal not met");
+        
+        fundsWithdrawn = true;
+        emit WithdrawAll(address(this).balance, block.timestamp);
+        owner.transfer(address(this).balance);
     }
 
     function checkFundraisingTarget() internal view returns (bool) {
         if (address(this).balance >= fundingGoal){
-            targetReached == true;    
-            return true;  
+            return true;    
+            
         }
-        else{
-            return false; 
-        }    
-    }  
+        return false;     
+    } 
+
+    function isRecoverFundsAvailable() public view returns (bool){
+        if (block.timestamp >= recoverFundsAt && block.timestamp < retainFundsAt){
+            return true;
+        }
+
+        return false;
+    }
+
+    function isRetrainFundsAvailable() public view returns (bool){
+        if(block.timestamp >= retainFundsAt){
+            return true;
+        }
+        return false;
+    } 
 }
