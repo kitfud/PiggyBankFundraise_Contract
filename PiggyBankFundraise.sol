@@ -80,6 +80,7 @@ contract PiggyBankFundraise {
     function getBackFunds(address _client) external getBackFundsTime{
         require(checkFundraisingTarget()==false, "function not available, funding goal has been met.");
         uint donated = addressToDonation[_client];
+        addressToDonation[_client] = 0;
         payable(_client).transfer(donated);
     }
 

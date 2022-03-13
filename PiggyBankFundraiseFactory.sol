@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+/SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.10;
 import "./PiggyBankFundraise.sol";
@@ -76,16 +76,16 @@ function amountDonatedInContract(address _client, uint _storageIndex) public vie
 return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).addressToDonation(_client);
 }
 
-function callGetBackFunds(uint256 _storageIndex) public {
-return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).getBackFunds(msg.sender);
+function callGetBackFunds(address _client, uint256 _storageIndex) public {
+return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).getBackFunds(_client);
 }
 
-function callWithdrawAll(uint256 _storageIndex) public { 
-return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).withdrawAll(msg.sender);
+function callWithdrawAll(address _client, uint256 _storageIndex) public { 
+return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).withdrawAll(_client);
 }
 
-function callDisburseFunds(uint256 _storageIndex) public {
-return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).disburseFunds(msg.sender);
+function callDisburseFunds(address _client, uint256 _storageIndex) public {
+return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).disburseFunds(_client);
 }
 
 function getContractOwner(uint256 _storageIndex) public view returns (address) {
