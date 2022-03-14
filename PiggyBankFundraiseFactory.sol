@@ -5,6 +5,8 @@ import "./PiggyBankFundraise.sol";
 
 contract PiggyBankFundraiseFactory {
 
+event ContractCreated(address _contractOwner, address _contractAddress, string _summary, uint _fundingGoal);
+
 PiggyBankFundraise[] private piggyBankFundraiseCampaigns; 
 mapping(address => uint256) private addressToIndex; 
 
@@ -32,10 +34,12 @@ function createPiggyBankFundraiseContract(
     uint _clearContractMin
 ) public {
     PiggyBankFundraise piggyBankFundraise = new PiggyBankFundraise(msg.sender,_fundingGoalWei,_fundingSummary, _getBackFundsMin,_clearContractMin);
-
     piggyBankFundraiseCampaigns.push(piggyBankFundraise);
     uint256 arrayIndex = piggyBankFundraiseCampaigns.length-1; 
     addressToIndex[address(piggyBankFundraise)] = arrayIndex;
+
+    emit ContractCreated(msg.sender,address(piggyBankFundraise),_fundingSummary,_fundingGoalWei);
+
 }
 
 function getCurrentBlockTimestamp() public view returns (uint256){
@@ -104,9 +108,6 @@ function getCheckFundsWithdrawn(uint256 _storageIndex) public view returns (bool
     return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).fundsWithdrawn();
 }
 
-function getCheckGoldenDonerSet(uint256 _storageIndex) public view returns (bool){
-    return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).goldenDonerSet();
-}
 
 function getGoldenDoner(uint256 _storageIndex) public view returns (address) {
     return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).goldenDoner();
