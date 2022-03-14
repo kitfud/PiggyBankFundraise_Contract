@@ -1,4 +1,4 @@
-/SPDX-License-Identifier: MIT
+//SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.10;
 import "./PiggyBankFundraise.sol";
@@ -98,6 +98,14 @@ function getFundingGoal(uint256 _storageIndex) public view returns (uint) {
 
 function getFundingSummary(uint256 _storageIndex) public view returns (string memory){
     return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).fundingSummary();
+}
+
+function getCheckFundsWithdrawn(uint256 _storageIndex) public view returns (bool){
+    return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).fundsWithdrawn();
+}
+
+function getCheckGoldenDonerSet(uint256 _storageIndex) public view returns (bool){
+    return PiggyBankFundraise(piggyBankFundraiseCampaigns[_storageIndex]).goldenDonerSet();
 }
 
 function getGoldenDoner(uint256 _storageIndex) public view returns (address) {
